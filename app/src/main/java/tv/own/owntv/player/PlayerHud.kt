@@ -569,14 +569,14 @@ fun PlayerHud(
             if (e.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
             when {
                 // Grandparents-friendly remote: only the dedicated CH+/CH− keys (handled above)
-// change channels. Consume media previous/next so they cannot zap through this player.
-canZap && (e.key == Key.MediaNext || e.key == Key.MediaPrevious) -> true
-// With the HUD hidden, Up/Down reveal it instead of changing the live channel.
-canZap && isLive && !controlsVisible &&
-    (e.key == Key.DirectionUp || e.key == Key.DirectionDown) -> {
-    controlsVisible = true
-    true
-}
+                // change channels. Consume media previous/next so they cannot zap through this player.
+                canZap && (e.key == Key.MediaNext || e.key == Key.MediaPrevious) -> true
+                // With the HUD hidden, Up/Down reveal it instead of changing the live channel.
+                canZap && isLive && !controlsVisible &&
+                    (e.key == Key.DirectionUp || e.key == Key.DirectionDown) -> {
+                    controlsVisible = true
+                    true
+                }
                 // Left/Right seek films only. Live TV reserves these keys for neither side panels
                 // nor timeshift, preventing accidental navigation while watching.
                 !controlsVisible && error == null &&
