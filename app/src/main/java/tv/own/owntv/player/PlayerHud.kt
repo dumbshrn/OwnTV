@@ -140,10 +140,9 @@ fun PlayerHud(
     inert: Boolean = false,
     onChannelUp: (() -> Unit)? = null,
     onChannelDown: (() -> Unit)? = null,
-    // Live: open the channel-list overlay (Left while the controls are hidden). Null = not a live channel.
+    // Live: open the channel-list overlay from an explicit UI action. Null = not a live channel.
     onOpenChannelList: (() -> Unit)? = null,
-    // Live: open the watch-history list (Right while the controls are hidden) — jump straight back to a
-    // recent channel without leaving full-screen. Null = not a live channel.
+    // Live: open the watch-history list from an explicit UI action. Null = not a live channel.
     onOpenHistoryList: (() -> Unit)? = null,
     // Live rewind / timeshift (catch-up channels). onRewindLive non-null = this live channel can rewind;
     // timeshiftOffsetSec non-null = currently watching that many seconds behind the live edge.
@@ -209,8 +208,8 @@ fun PlayerHud(
     watchingWallMs: (() -> Long?)? = null,
     // When the programme on air ends, read as the sleep timer opens. Null = no "End of programme".
     sleepProgrammeEndMs: (() -> Long?)? = null,
-    // Settings → "Left and right rewind live TV": with the controls hidden, Left/Right on a
-    // catch-up channel scrub instead of opening the lists. Films always seek.
+    // Retained for API compatibility. Left/Right are deliberately not mapped to live rewind
+    // in the grandparents-friendly remote behaviour.
     liveLeftRightRewinds: Boolean = false,
     // Sports Hub — only for a channel started from a match; all null means the plain Live player.
     // The match's score line under the channel name, drawn only while the controls are up.
@@ -578,35 +577,26 @@ canZap && isLive && !controlsVisible &&
     controlsVisible = true
     true
 }
-                // Left/Right with the controls hidden: reveal them on the timeline and take the first
-                // step, so the jump is seen and holding the key goes on scrubbing the bar itself. Physical
-                // keys, like the bars: left is back in time in every locale. A film always does this; a
-                // live channel only with its archive and the setting on — otherwise the lists below.
-                // Decided in the bottom bar's own order: a channel with an archive draws the live timeline
-                // even while rewound (when the engine is playing a file and calls it not live), so that
-                // is what the keys scrub; only without one does a film's seek bar apply.
+                // Left/Right seek films only. Live TV reserves these keys for neither side panels
+                // nor timeshift, preventing accidental navigation while watching.
                 !controlsVisible && error == null &&
                     (e.key == Key.DirectionLeft || e.key == Key.DirectionRight) &&
-                    onScrubLive == null && !isLive && duration > 0L -> {
+                    !isLive && duration > 0L -> {
                     val back = e.key == Key.DirectionLeft
-                    if (onScrubLive != null) {
-                        onScrubLive(if (back) LIVE_SCRUB_STEP_SEC else -LIVE_SCRUB_STEP_SEC)
-                    } else {
-                        val step = player.seekStepMs.value
-                        player.seekBy(if (back) -step else step)
-                    }
+                    val step = player.seekStepMs.value
+                    player.seekBy(if (back) -step else step)
                     focusSeekOnShow = true
                     controlsVisible = true
                     true
                 }
-                // During Live TV, Left/Right must not unexpectedly open the category or history panels.
-isLive && !controlsVisible &&
-    (e.key == Key.DirectionLeft || e.key == Key.DirectionRight) -> true
-// Outside Live TV, retain the existing category/history navigation shortcuts.
-onOpenChannelList != null && !controlsVisible &&
-    e.key.horizontalDirection(layoutDirection) == HorizontalDirection.START -> { onOpenChannelList(); true }
-onOpenHistoryList != null && !controlsVisible &&
-    e.key.horizontalDirection(layoutDirection) == HorizontalDirection.END -> { onOpenHistoryList(); true }
+                // During Live TV, Left/Right must not unexpectedly open category/history panels.
+                isLive && !controlsVisible &&
+                    (e.key == Key.DirectionLeft || e.key == Key.DirectionRight) -> true
+                // Outside Live TV, retain the existing category/history navigation shortcuts.
+                onOpenChannelList != null && !controlsVisible &&
+                    e.key.horizontalDirection(layoutDirection) == HorizontalDirection.START -> { onOpenChannelList(); true }
+                onOpenHistoryList != null && !controlsVisible &&
+                    e.key.horizontalDirection(layoutDirection) == HorizontalDirection.END -> { onOpenHistoryList(); true }
                 onToastOk != null && !controlsVisible &&
                     (e.key == Key.DirectionCenter || e.key == Key.Enter || e.key == Key.NumPadEnter) -> { onToastOk(); true }
                 controlsVisible -> { wakeTick++; false }
