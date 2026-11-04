@@ -569,20 +569,15 @@ fun PlayerHud(
             // ---- Existing key handling (unchanged, but skip for digit KeyUp already consumed above) ----
             if (e.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
             when {
-                // Channel surfing: media prev/next always zap alongside the dedicated CH keys handled
-                // above. D-pad Up/Down zap ONLY on live streams while the HUD is hidden (when it's visible,
-                // Up/Down navigate the controls) —
-                // this is the only way to change channels on remotes without CH keys (e.g. Fire TV).
-                //
-                // Direction is channel-number order, not list-position order: "up" (CH+, D-pad Up) is
-                // the NEXT channel — further down an ascending list, delta +1 — matching the
-                // de facto TV convention (Live Channels, YouTube TV, Pluto TV). CH and D-pad keys move together:
-                // Swap channel up/down flips both (see zapDirection), never the media keys. Wrapping is
-                // intended: CH-/Down from the first channel lands on the last, and vice versa.
-                canZap && e.key == Key.MediaNext -> { zap(1); true }
-                canZap && e.key == Key.MediaPrevious -> { zap(-1); true }
-                canZap && isLive && !controlsVisible && e.key == Key.DirectionUp -> { zap(zapDirection(up = true, remoteOptions)); true }
-                canZap && isLive && !controlsVisible && e.key == Key.DirectionDown -> { zap(zapDirection(up = false, remoteOptions)); true }
+                // Grandparents-friendly remote: only the dedicated CH+/CH− keys (handled above)
+// change channels. Consume media previous/next so they cannot zap through this player.
+canZap && (e.key == Key.MediaNext || e.key == Key.MediaPrevious) -> true
+// With the HUD hidden, Up/Down reveal it instead of changing the live channel.
+canZap && isLive && !controlsVisible &&
+    (e.key == Key.DirectionUp || e.key == Key.DirectionDown) -> {
+    controlsVisible = true
+    true
+}
                 // Left/Right with the controls hidden: reveal them on the timeline and take the first
                 // step, so the jump is seen and holding the key goes on scrubbing the bar itself. Physical
                 // keys, like the bars: left is back in time in every locale. A film always does this; a
@@ -590,8 +585,9 @@ fun PlayerHud(
                 // Decided in the bottom bar's own order: a channel with an archive draws the live timeline
                 // even while rewound (when the engine is playing a file and calls it not live), so that
                 // is what the keys scrub; only without one does a film's seek bar apply.
-                !controlsVisible && error == null && (e.key == Key.DirectionLeft || e.key == Key.DirectionRight) &&
-                    (if (onScrubLive != null) liveLeftRightRewinds else !isLive && duration > 0L) -> {
+                !controlsVisible && error == null &&
+                    (e.key == Key.DirectionLeft || e.key == Key.DirectionRight) &&
+                    onScrubLive == null && !isLive && duration > 0L -> {
                     val back = e.key == Key.DirectionLeft
                     if (onScrubLive != null) {
                         onScrubLive(if (back) LIVE_SCRUB_STEP_SEC else -LIVE_SCRUB_STEP_SEC)
@@ -603,11 +599,14 @@ fun PlayerHud(
                     controlsVisible = true
                     true
                 }
-                // The category list lives at logical Start; history lives at logical End.
-                onOpenChannelList != null && !controlsVisible &&
-                    e.key.horizontalDirection(layoutDirection) == HorizontalDirection.START -> { onOpenChannelList(); true }
-                onOpenHistoryList != null && !controlsVisible &&
-                    e.key.horizontalDirection(layoutDirection) == HorizontalDirection.END -> { onOpenHistoryList(); true }
+                // During Live TV, Left/Right must not unexpectedly open the category or history panels.
+isLive && !controlsVisible &&
+    (e.key == Key.DirectionLeft || e.key == Key.DirectionRight) -> true
+// Outside Live TV, retain the existing category/history navigation shortcuts.
+onOpenChannelList != null && !controlsVisible &&
+    e.key.horizontalDirection(layoutDirection) == HorizontalDirection.START -> { onOpenChannelList(); true }
+onOpenHistoryList != null && !controlsVisible &&
+    e.key.horizontalDirection(layoutDirection) == HorizontalDirection.END -> { onOpenHistoryList(); true }
                 onToastOk != null && !controlsVisible &&
                     (e.key == Key.DirectionCenter || e.key == Key.Enter || e.key == Key.NumPadEnter) -> { onToastOk(); true }
                 controlsVisible -> { wakeTick++; false }
